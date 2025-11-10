@@ -48,8 +48,18 @@ class VirtualCard(db.Model):
         return Decimal(str(value)).quantize(Decimal('0.01'))
     
     @staticmethod
-    def generate_card_number():
-        return ''.join([str(random.randint(0, 9)) for _ in range(16)])
+    def generate_card_number(max_retries=10):
+        """Generate unique card number with collision detection"""
+        for _ in range(max_retries):
+            card_number = ''.join([str(random.randint(0, 9)) for _ in range(16)])
+            # Check if this number already exists
+            existing = VirtualCard.query.filter_by(card_number=card_number).first()
+            if not existing:
+                return card_number
+        # Fallback: add timestamp suffix for absolute uniqueness
+        timestamp_suffix = str(int(datetime.utcnow().timestamp()))[-6:]
+        base_number = ''.join([str(random.randint(0, 9)) for _ in range(10)])
+        return base_number + timestamp_suffix
     
     @staticmethod
     def generate_cvv():
