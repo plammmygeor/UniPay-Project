@@ -114,13 +114,16 @@ def seed_student_klomba_account():
         for transfer in incoming_transfers:
             timestamp = datetime.utcnow() - timedelta(days=transfer['days_ago'])
             transaction = Transaction(
-                wallet_id=user.wallet.id,
-                type='transfer_in',
+                user_id=user.id,
+                sender_id=transfer['from_user'].id,
+                receiver_id=user.id,
+                transaction_type='transfer',
                 amount=transfer['amount'],
                 description=f"Transfer from {transfer['from_user'].username}: {transfer['description']}",
                 status='completed',
                 created_at=timestamp,
-                metadata={'from_user': transfer['from_user'].username}
+                completed_at=timestamp,
+                transaction_metadata={'from_user': transfer['from_user'].username}
             )
             db.session.add(transaction)
         
@@ -149,13 +152,16 @@ def seed_student_klomba_account():
         for transfer in outgoing_transfers:
             timestamp = datetime.utcnow() - timedelta(days=transfer['days_ago'])
             transaction = Transaction(
-                wallet_id=user.wallet.id,
-                type='transfer_out',
+                user_id=user.id,
+                sender_id=user.id,
+                receiver_id=transfer['to_user'].id,
+                transaction_type='transfer',
                 amount=-transfer['amount'],
                 description=f"Transfer to {transfer['to_user'].username}: {transfer['description']}",
                 status='completed',
                 created_at=timestamp,
-                metadata={'to_user': transfer['to_user'].username}
+                completed_at=timestamp,
+                transaction_metadata={'to_user': transfer['to_user'].username}
             )
             db.session.add(transaction)
         
@@ -236,14 +242,15 @@ def seed_student_klomba_account():
         for card, desc, amount, days_ago in card_transactions:
             timestamp = datetime.utcnow() - timedelta(days=days_ago)
             transaction = Transaction(
-                wallet_id=user.wallet.id,
-                type='expense',
+                user_id=user.id,
+                card_id=card.id,
+                transaction_type='expense',
                 amount=-amount,
                 description=desc,
-                category=card.category,
                 status='completed',
                 created_at=timestamp,
-                metadata={'card_id': card.id, 'card_name': card.card_name}
+                completed_at=timestamp,
+                transaction_metadata={'category': card.category, 'card_name': card.card_name}
             )
             db.session.add(transaction)
         
@@ -271,13 +278,14 @@ def seed_student_klomba_account():
         for tx_type, amount, desc, days_ago, category in additional_transactions:
             timestamp = datetime.utcnow() - timedelta(days=days_ago)
             transaction = Transaction(
-                wallet_id=user.wallet.id,
-                type=tx_type,
+                user_id=user.id,
+                transaction_type=tx_type,
                 amount=amount,
                 description=desc,
-                category=category,
                 status='completed',
-                created_at=timestamp
+                created_at=timestamp,
+                completed_at=timestamp,
+                transaction_metadata={'category': category}
             )
             db.session.add(transaction)
         
@@ -291,13 +299,13 @@ def seed_student_klomba_account():
         for desc, amount, days_future in upcoming_payments:
             due_date = datetime.utcnow() + timedelta(days=days_future)
             transaction = Transaction(
-                wallet_id=user.wallet.id,
-                type='reminder',
+                user_id=user.id,
+                transaction_type='reminder',
                 amount=-amount,
                 description=desc,
                 status='pending',
                 created_at=datetime.utcnow(),
-                metadata={'due_date': due_date.isoformat()}
+                transaction_metadata={'due_date': due_date.isoformat()}
             )
             db.session.add(transaction)
         
@@ -363,7 +371,7 @@ def seed_student_klomba_account():
             auto_save_enabled=True,
             auto_save_percentage=20,
             auto_save_frequency='monthly',
-            auto_save_next_date=(datetime.utcnow() + timedelta(days=30)).date(),
+            next_auto_save_date=(datetime.utcnow() + timedelta(days=30)).date(),
             created_at=datetime.utcnow() - timedelta(days=90)
         )
         db.session.add(dark_days_pocket)
@@ -494,7 +502,7 @@ def seed_student_klomba_account():
             repayment = LoanRepayment(
                 loan_id=loan.id,
                 amount=loan_data['amount_repaid'],
-                repayment_date=datetime.utcnow() - timedelta(days=15)
+                created_at=datetime.utcnow() - timedelta(days=15)
             )
             db.session.add(repayment)
         
@@ -531,7 +539,7 @@ def seed_student_klomba_account():
             repayment = LoanRepayment(
                 loan_id=loan.id,
                 amount=loan_data['amount_repaid'],
-                repayment_date=datetime.utcnow() - timedelta(days=10)
+                created_at=datetime.utcnow() - timedelta(days=10)
             )
             db.session.add(repayment)
         
@@ -582,7 +590,7 @@ def seed_student_klomba_account():
                 repayment = LoanRepayment(
                     loan_id=loan.id,
                     amount=loan_data['amount'],
-                    repayment_date=loan_data['repaid_at']
+                    created_at=loan_data['repaid_at']
                 )
                 db.session.add(repayment)
         
