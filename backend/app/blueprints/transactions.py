@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import Transaction
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import or_
 
 transactions_bp = Blueprint('transactions', __name__)
 
@@ -51,7 +52,13 @@ def get_transactions():
     per_page = request.args.get('per_page', 20, type=int)
     transaction_type = request.args.get('type')
     
-    query = Transaction.query.filter_by(user_id=user_id)
+    query = Transaction.query.filter(
+        or_(
+            Transaction.user_id == user_id,
+            Transaction.sender_id == user_id,
+            Transaction.receiver_id == user_id
+        )
+    )
     
     if transaction_type:
         query = query.filter_by(transaction_type=transaction_type)
