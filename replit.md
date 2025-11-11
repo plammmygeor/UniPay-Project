@@ -26,7 +26,7 @@ The frontend features a modern, Revolut-inspired interface, built with `shadcn/u
 *   **Frontend:** React 18 and Vite. State management via Zustand (client-side) and TanStack Query (server-side). Axios for HTTP requests with JWT interceptors, and React Router DOM for navigation.
 
 **Core Feature Specifications:**
-*   **Authentication:** User registration, login, JWT token management, PIN setup/change, and visual-only features for forgot password and social login.
+*   **Authentication:** User registration, login with password visibility toggle (eye icon), JWT token management, PIN setup/change, and visual-only features for forgot password and social login. Password toggle includes full keyboard and screen-reader accessibility.
 *   **Wallet:** Balance display, top-up, peer-to-peer transfers, and multi-currency support with transfer scheduling.
 *   **Transactions:** Comprehensive tracking, filtering, and statistical analysis for 15+ types, including "expected payments" (CRUD, recurring), balance validation, race condition protection, detailed records, and automatic query invalidation.
 *   **Virtual Cards:** Creation, management (freeze/unfreeze), linking to subscriptions, and payment checks.
