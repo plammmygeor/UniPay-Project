@@ -111,6 +111,7 @@ export function SubscriptionCardDetailDialog({
       toast.success(`Added ${service.service_name}!`);
       queryClient.invalidateQueries({ queryKey: ['card-subscriptions', cardId] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setSubscribingIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(service.id);
@@ -136,6 +137,7 @@ export function SubscriptionCardDetailDialog({
       toast.success('Subscription paused');
       queryClient.invalidateQueries({ queryKey: ['card-subscriptions', cardId] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setActioningIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(subId);
@@ -161,6 +163,7 @@ export function SubscriptionCardDetailDialog({
       toast.success('Subscription resumed');
       queryClient.invalidateQueries({ queryKey: ['card-subscriptions', cardId] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setActioningIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(subId);
@@ -186,6 +189,7 @@ export function SubscriptionCardDetailDialog({
       toast.success('Subscription removed');
       queryClient.invalidateQueries({ queryKey: ['card-subscriptions', cardId] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setActioningIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(subId);
@@ -216,6 +220,7 @@ export function SubscriptionCardDetailDialog({
       toast.success('Custom subscription added!');
       queryClient.invalidateQueries({ queryKey: ['card-subscriptions', cardId] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       form.reset();
       setSelectedTab('active');
     },
@@ -230,6 +235,12 @@ export function SubscriptionCardDetailDialog({
 
   const activeSubscriptions = subscriptions?.filter((s: any) => s.is_active) || [];
   const totalMonthlySpend = activeSubscriptions.reduce((sum: number, s: any) => sum + parseFloat(s.amount), 0);
+
+  const isServiceAlreadyAdded = (serviceName: string) => {
+    return subscriptions?.some((sub: any) => 
+      sub.service_name === serviceName && sub.is_active
+    ) || false;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -384,12 +395,16 @@ export function SubscriptionCardDetailDialog({
                       <Button
                         className="w-full mt-4"
                         onClick={() => subscribeMutation.mutate(service)}
-                        disabled={subscribingIds.has(service.id)}
+                        disabled={subscribingIds.has(service.id) || isServiceAlreadyAdded(service.service_name)}
                       >
                         {subscribingIds.has(service.id) ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Adding...
+                          </>
+                        ) : isServiceAlreadyAdded(service.service_name) ? (
+                          <>
+                            Already Added
                           </>
                         ) : (
                           <>

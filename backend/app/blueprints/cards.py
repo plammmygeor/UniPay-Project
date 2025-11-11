@@ -359,16 +359,59 @@ def add_subscription(card_id):
     
     data = request.get_json()
     
+    service_name = data.get('service_name')
+    amount = data.get('amount')
+    billing_cycle = data.get('billing_cycle', 'monthly')
+    next_billing_date_str = data.get('next_billing_date')
+    
+    next_billing_date = datetime.fromisoformat(next_billing_date_str).date() if next_billing_date_str else None
+    
+    existing_sub = Subscription.query.filter_by(
+        card_id=card_id,
+        service_name=service_name,
+        is_active=True
+    ).first()
+    
+    if existing_sub:
+        return jsonify({'error': 'Subscription already exists for this service'}), 409
+    
     subscription = Subscription(
         card_id=card_id,
-        service_name=data.get('service_name'),
+        service_name=service_name,
         service_category=data.get('service_category'),
-        amount=data.get('amount'),
-        billing_cycle=data.get('billing_cycle', 'monthly'),
-        next_billing_date=datetime.fromisoformat(data['next_billing_date']).date() if data.get('next_billing_date') else None
+        amount=amount,
+        billing_cycle=billing_cycle,
+        next_billing_date=next_billing_date
     )
     
     db.session.add(subscription)
+    db.session.flush()
+    
+    if next_billing_date:
+        next_billing_datetime = datetime.combine(next_billing_date, datetime.min.time())
+        
+        scheduled_transaction = Transaction(
+            user_id=user_id,
+            transaction_type='subscription_payment',
+            transaction_source='budget_card',
+            amount=float(amount),
+            status='scheduled',
+            description=f'{service_name} - {billing_cycle} subscription',
+            transaction_metadata={
+                'source': 'SUBSCRIPTION_PAYMENT',
+                'subscription_id': subscription.id,
+                'card_id': card_id,
+                'billing_cycle': billing_cycle,
+                'scheduled': True,
+                'upcoming': True,
+                'category': data.get('service_category', 'subscription'),
+                'display_color': '#FACC15'
+            },
+            created_at=next_billing_datetime
+        )
+        
+        db.session.add(scheduled_transaction)
+    
     db.session.commit()
     
     return jsonify({
@@ -699,6 +742,15 @@ def delete_subscription(card_id, sub_id):
     if not subscription:
         return jsonify({'error': 'Subscription not found'}), 404
     
+    scheduled_transaction = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.status == 'scheduled',
+        Transaction.transaction_metadata['subscription_id'].astext == str(sub_id)
+    ).first()
+    
+    if scheduled_transaction:
+        db.session.delete(scheduled_transaction)
+    
     db.session.delete(subscription)
     db.session.commit()
     
@@ -717,6 +769,15 @@ def pause_subscription(card_id, sub_id):
     subscription = Subscription.query.filter_by(id=sub_id, card_id=card_id).first()
     if not subscription:
         return jsonify({'error': 'Subscription not found'}), 404
+    
+    scheduled_transaction = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.status == 'scheduled',
+        Transaction.transaction_metadata['subscription_id'].astext == str(sub_id)
+    ).first()
+    
+    if scheduled_transaction:
+        db.session.delete(scheduled_transaction)
     
     subscription.is_active = False
     db.session.commit()
@@ -741,6 +802,32 @@ def resume_subscription(card_id, sub_id):
         return jsonify({'error': 'Subscription not found'}), 404
     
     subscription.is_active = True
+    
+    if subscription.next_billing_date:
+        next_billing_datetime = datetime.combine(subscription.next_billing_date, datetime.min.time())
+        
+        scheduled_transaction = Transaction(
+            user_id=user_id,
+            transaction_type='subscription_payment',
+            transaction_source='budget_card',
+            amount=float(subscription.amount),
+            status='scheduled',
+            description=f'{subscription.service_name} - {subscription.billing_cycle} subscription',
+            transaction_metadata={
+                'source': 'SUBSCRIPTION_PAYMENT',
+                'subscription_id': subscription.id,
+                'card_id': card_id,
+                'billing_cycle': subscription.billing_cycle,
+                'scheduled': True,
+                'upcoming': True,
+                'category': subscription.service_category or 'subscription',
+                'display_color': '#FACC15'
+            },
+            created_at=next_billing_datetime
+        )
+        
+        db.session.add(scheduled_transaction)
+    
     db.session.commit()
     
     return jsonify({
