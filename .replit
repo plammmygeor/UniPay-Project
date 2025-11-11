@@ -27,21 +27,12 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python backend/run.py & npm run dev"
+args = "bash -c 'python backend/run.py & npm run dev'"
 waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3002
-
-[[ports]]
-localPort = 8000
-externalPort = 8000
-exposeLocalhost = true
 
 [[ports]]
 localPort = 39483
