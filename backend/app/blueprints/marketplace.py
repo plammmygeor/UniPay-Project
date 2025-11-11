@@ -9,6 +9,25 @@ from decimal import Decimal
 
 marketplace_bp = Blueprint('marketplace', __name__)
 
+
+def lock_wallets_deterministic(user_id_1, user_id_2):
+    """
+    Lock two user wallets in deterministic order to prevent deadlocks.
+    Always locks lower user_id first, then higher user_id.
+    
+    Returns:
+        tuple: (wallet1, wallet2) where wallet1 belongs to user_id_1
+    """
+    # Sort user IDs to ensure consistent locking order
+    if user_id_1 < user_id_2:
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        return wallet1, wallet2
+    else:
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        return wallet1, wallet2
+
 @marketplace_bp.route('/listings', methods=['GET'])
 @jwt_required()
 def get_listings():
@@ -124,13 +143,18 @@ def create_order():
         return jsonify({'error': 'Cannot purchase your own listing'}), 400
     
     try:
-        # Lock buyer wallet
-        buyer_wallet = Wallet.query.filter_by(user_id=user_id).with_for_update().first()
+        price_decimal = Decimal(str(listing.price))
+        
+        # Lock both wallets in deterministic order to prevent deadlocks
+        buyer_wallet, seller_wallet = lock_wallets_deterministic(user_id, listing.seller_id)
+        
         if not buyer_wallet:
-            return jsonify({'error': 'Wallet not found'}), 404
+            return jsonify({'error': 'Buyer wallet not found'}), 404
+        
+        if not seller_wallet:
+            return jsonify({'error': 'Seller wallet not found'}), 404
         
         # Check buyer balance
-        price_decimal = Decimal(str(listing.price))
         if buyer_wallet.balance < price_decimal:
             return jsonify({'error': 'Insufficient wallet balance'}), 400
         
@@ -142,7 +166,8 @@ def create_order():
             listing_id=listing_id,
             buyer_id=user_id,
             amount=listing.price,
-            status='paid'
+            status='paid',
+            escrow_released=True  # Immediate escrow release (single-phase)
         )
         db.session.add(order)
         db.session.flush()  # Get order ID before creating transactions
@@ -165,11 +190,7 @@ def create_order():
         )
         db.session.add(purchase_transaction)
         
-        # Credit seller wallet (escrow release)
-        seller_wallet = Wallet.query.filter_by(user_id=listing.seller_id).with_for_update().first()
-        if not seller_wallet:
-            db.session.rollback()
-            return jsonify({'error': 'Seller wallet not found. Purchase cancelled.'}), 500
+        # Credit seller wallet (immediate escrow release)
         
         seller_wallet.balance += price_decimal
         

@@ -5,15 +5,15 @@ class Loan(db.Model):
     __tablename__ = 'loans'
     
     id = db.Column(db.Integer, primary_key=True)
-    lender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    borrower_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    lender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    borrower_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(3), default='USD')
     
     amount_repaid = db.Column(db.Numeric(10, 2), default=0.00)
     
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending', index=True)
     
     description = db.Column(db.String(255))
     due_date = db.Column(db.Date)
@@ -76,7 +76,7 @@ class LoanRepayment(db.Model):
     __tablename__ = 'loan_repayments'
     
     id = db.Column(db.Integer, primary_key=True)
-    loan_id = db.Column(db.Integer, db.ForeignKey('loans.id'), nullable=False)
+    loan_id = db.Column(db.Integer, db.ForeignKey('loans.id'), nullable=False, index=True)
     
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     

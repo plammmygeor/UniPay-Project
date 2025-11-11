@@ -5,7 +5,7 @@ class Subscription(db.Model):
     __tablename__ = 'subscriptions'
     
     id = db.Column(db.Integer, primary_key=True)
-    card_id = db.Column(db.Integer, db.ForeignKey('virtual_cards.id'), nullable=False)
+    card_id = db.Column(db.Integer, db.ForeignKey('virtual_cards.id'), nullable=False, index=True)
     
     service_name = db.Column(db.String(100), nullable=False)
     service_category = db.Column(db.String(50))

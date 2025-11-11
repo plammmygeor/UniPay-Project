@@ -5,22 +5,22 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
-    transaction_type = db.Column(db.String(50), nullable=False)
+    transaction_type = db.Column(db.String(50), nullable=False, index=True)
     transaction_source = db.Column(db.String(20), default='main_wallet')
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(3), default='USD')
     
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending', index=True)
     
-    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     
     description = db.Column(db.String(255))
     transaction_metadata = db.Column(db.JSON)
     
-    card_id = db.Column(db.Integer, db.ForeignKey('virtual_cards.id'), nullable=True)
+    card_id = db.Column(db.Integer, db.ForeignKey('virtual_cards.id'), nullable=True, index=True)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     completed_at = db.Column(db.DateTime)

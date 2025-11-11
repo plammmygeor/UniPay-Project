@@ -11,6 +11,26 @@ import secrets
 
 wallet_bp = Blueprint('wallet', __name__)
 
+
+def lock_wallets_deterministic(user_id_1, user_id_2):
+    """
+    Lock two user wallets in deterministic order to prevent deadlocks.
+    Always locks lower user_id first, then higher user_id.
+    
+    Returns:
+        tuple: (wallet1, wallet2) where wallet1 belongs to user_id_1
+    """
+    # Sort user IDs to ensure consistent locking order
+    if user_id_1 < user_id_2:
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        return wallet1, wallet2
+    else:
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        return wallet1, wallet2
+
+
 @wallet_bp.route('', methods=['GET'])
 @wallet_bp.route('/', methods=['GET'])
 @jwt_required()
@@ -109,12 +129,12 @@ def transfer_money():
         return jsonify({'error': 'Cannot transfer to yourself'}), 400
     
     try:
-        sender_wallet = Wallet.query.filter_by(user_id=sender_id).with_for_update().first()
+        # Lock both wallets in deterministic order to prevent deadlocks
+        sender_wallet, receiver_wallet = lock_wallets_deterministic(sender_id, receiver.id)
         
         if not sender_wallet:
             return jsonify({'error': 'Sender wallet not found'}), 404
         
-        receiver_wallet = Wallet.query.filter_by(user_id=receiver.id).with_for_update().first()
         if not receiver_wallet:
             return jsonify({'error': 'Receiver wallet not found'}), 404
         

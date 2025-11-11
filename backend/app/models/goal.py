@@ -5,7 +5,7 @@ class Goal(db.Model):
     __tablename__ = 'goals'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)

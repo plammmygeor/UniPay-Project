@@ -5,23 +5,23 @@ class MarketplaceListing(db.Model):
     __tablename__ = 'marketplace_listings'
     
     id = db.Column(db.Integer, primary_key=True)
-    seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    category = db.Column(db.String(50))
+    category = db.Column(db.String(50), index=True)
     
     price = db.Column(db.Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(3), default='USD')
     
-    university = db.Column(db.String(100))
+    university = db.Column(db.String(100), index=True)
     faculty = db.Column(db.String(100))
     course = db.Column(db.String(100))
     
     condition = db.Column(db.String(20))
     
-    is_available = db.Column(db.Boolean, default=True)
-    is_sold = db.Column(db.Boolean, default=False)
+    is_available = db.Column(db.Boolean, default=True, index=True)
+    is_sold = db.Column(db.Boolean, default=False, index=True)
     
     images = db.Column(db.JSON)
     
@@ -67,11 +67,11 @@ class MarketplaceOrder(db.Model):
     __tablename__ = 'marketplace_orders'
     
     id = db.Column(db.Integer, primary_key=True)
-    listing_id = db.Column(db.Integer, db.ForeignKey('marketplace_listings.id'), nullable=False)
-    buyer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    listing_id = db.Column(db.Integer, db.ForeignKey('marketplace_listings.id'), nullable=False, index=True)
+    buyer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     amount = db.Column(db.Numeric(10, 2), nullable=False)
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending', index=True)
     
     escrow_released = db.Column(db.Boolean, default=False)
     

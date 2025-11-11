@@ -5,7 +5,7 @@ class SavingsPocket(db.Model):
     __tablename__ = 'savings_pockets'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     name = db.Column(db.String(100), default='DarkDays Pocket')
     balance = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)

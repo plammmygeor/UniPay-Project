@@ -9,6 +9,25 @@ from decimal import Decimal, InvalidOperation
 
 loans_bp = Blueprint('loans', __name__)
 
+
+def lock_wallets_deterministic(user_id_1, user_id_2):
+    """
+    Lock two user wallets in deterministic order to prevent deadlocks.
+    Always locks lower user_id first, then higher user_id.
+    
+    Returns:
+        tuple: (wallet1, wallet2) where wallet1 belongs to user_id_1
+    """
+    # Sort user IDs to ensure consistent locking order
+    if user_id_1 < user_id_2:
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        return wallet1, wallet2
+    else:
+        wallet2 = Wallet.query.filter_by(user_id=user_id_2).with_for_update().first()
+        wallet1 = Wallet.query.filter_by(user_id=user_id_1).with_for_update().first()
+        return wallet1, wallet2
+
 @loans_bp.route('/available-users', methods=['GET'])
 @jwt_required()
 def get_available_users():
@@ -186,19 +205,19 @@ def repay_loan(loan_id):
         amount = remaining
     
     try:
-        # Lock borrower wallet
-        borrower_wallet = Wallet.query.filter_by(user_id=user_id).with_for_update().first()
+        # Lock both wallets in deterministic order to prevent deadlocks
+        borrower_wallet, lender_wallet = lock_wallets_deterministic(user_id, loan.lender_id)
+        
         if not borrower_wallet:
-            return jsonify({'error': 'Wallet not found'}), 404
+            return jsonify({'error': 'Borrower wallet not found'}), 404
+        
+        if not lender_wallet:
+            return jsonify({'error': 'Lender wallet not found'}), 404
         
         # Check borrower balance
         if borrower_wallet.balance < amount:
-            return jsonify({'error': 'Insufficient wallet balance'}), 400
-        
-        # Lock lender wallet
-        lender_wallet = Wallet.query.filter_by(user_id=loan.lender_id).with_for_update().first()
-        if not lender_wallet:
-            return jsonify({'error': 'Lender wallet not found'}), 404
+            current_app.logger.warning(f"Loan repayment failed for user {user_id}: Insufficient balance")
+            return jsonify({'error': f'Insufficient wallet balance. Available: ${float(borrower_wallet.balance):.2f}, Required: ${float(amount):.2f}'}), 400
         
         # Deduct from borrower wallet
         borrower_wallet.balance -= amount
@@ -294,19 +313,19 @@ def approve_loan_request(loan_id):
         return jsonify({'error': f'Loan request is already {loan.status}'}), 400
     
     try:
-        # Lock lender wallet
-        lender_wallet = Wallet.query.filter_by(user_id=lender_id).with_for_update().first()
+        # Lock both wallets in deterministic order to prevent deadlocks
+        lender_wallet, borrower_wallet = lock_wallets_deterministic(lender_id, loan.borrower_id)
+        
         if not lender_wallet:
-            return jsonify({'error': 'Wallet not found'}), 404
+            return jsonify({'error': 'Lender wallet not found'}), 404
+        
+        if not borrower_wallet:
+            return jsonify({'error': 'Borrower wallet not found'}), 404
         
         # Check lender balance
         if lender_wallet.balance < loan.amount:
-            return jsonify({'error': 'Insufficient wallet balance to approve this loan'}), 400
-        
-        # Lock borrower wallet
-        borrower_wallet = Wallet.query.filter_by(user_id=loan.borrower_id).with_for_update().first()
-        if not borrower_wallet:
-            return jsonify({'error': 'Borrower wallet not found'}), 404
+            current_app.logger.warning(f"Loan approval failed for loan {loan_id}: Insufficient lender balance")
+            return jsonify({'error': f'Insufficient wallet balance to approve this loan. Available: ${float(lender_wallet.balance):.2f}, Required: ${float(loan.amount):.2f}'}), 400
         
         # Transfer money
         lender_wallet.balance -= loan.amount

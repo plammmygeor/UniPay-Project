@@ -8,10 +8,10 @@ class VirtualCard(db.Model):
     __tablename__ = 'virtual_cards'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     
     # Card Purpose: 'payment' for virtual payment cards, 'budget' for budget tracking cards, 'subscription' for subscription management
-    card_purpose = db.Column(db.String(20), default='payment')
+    card_purpose = db.Column(db.String(20), default='payment', index=True)
     
     # Payment Card Fields
     card_type = db.Column(db.String(20), default='standard')
@@ -105,16 +105,37 @@ class VirtualCard(db.Model):
         if self.card_purpose != 'budget':
             return False
         amount_decimal = self.to_decimal(amount)
+        
+        # Check allocated budget
         remaining = self.allocated_amount - self.spent_amount
-        return remaining >= amount_decimal
+        if remaining < amount_decimal:
+            return False
+        
+        # Check monthly limit if set
+        if self.monthly_limit is not None:
+            if self.spent_amount + amount_decimal > self.monthly_limit:
+                return False
+        
+        return True
     
     def spend(self, amount):
-        """Record spending from budget card"""
+        """Record spending from budget card with monthly limit validation"""
         if self.card_purpose != 'budget':
             raise ValueError("Can only spend from budget cards")
+        
         amount_decimal = self.to_decimal(amount)
-        if not self.can_spend(amount_decimal):
-            raise ValueError(f"Insufficient budget in {self.card_name}. Available: ${self.get_remaining_balance():.2f}")
+        remaining = self.allocated_amount - self.spent_amount
+        
+        # Check allocated budget
+        if remaining < amount_decimal:
+            raise ValueError(f"Insufficient budget in {self.card_name}. Available: ${float(remaining):.2f}")
+        
+        # Check monthly limit if set
+        if self.monthly_limit is not None:
+            if self.spent_amount + amount_decimal > self.monthly_limit:
+                available = float(self.monthly_limit - self.spent_amount)
+                raise ValueError(f"Spending exceeds monthly limit. Available: ${available:.2f} of ${float(self.monthly_limit):.2f}")
+        
         self.spent_amount += amount_decimal
         self.updated_at = datetime.utcnow()
     
