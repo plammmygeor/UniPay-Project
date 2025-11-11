@@ -61,7 +61,8 @@ export const transactionsAPI = {
   getTransactions: (page: number = 1, per_page: number = 20, type?: string) => 
     api.get('/transactions', { params: { page, per_page, type } }),
   getTransaction: (id: number) => api.get(`/transactions/${id}`),
-  getStats: () => api.get('/transactions/stats'),
+  getStats: (period: string = 'last_12_months', date_from?: string, date_to?: string) => 
+    api.get('/transactions/stats', { params: { period, date_from, date_to } }),
 };
 
 export const cardsAPI = {

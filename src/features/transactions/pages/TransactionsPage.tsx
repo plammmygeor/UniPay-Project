@@ -30,11 +30,11 @@ export default function TransactionsPage() {
     },
   });
 
-  // Fetch accurate stats from backend (calculated from ALL transactions in DB)
+  // Fetch accurate stats from backend (calculated from transactions in selected period)
   const { data: statsData } = useQuery({
-    queryKey: ['transaction-stats'],
+    queryKey: ['transaction-stats', 'last_12_months'],
     queryFn: async () => {
-      const response = await transactionsAPI.getStats();
+      const response = await transactionsAPI.getStats('last_12_months');
       return response.data;
     },
   });
@@ -112,7 +112,9 @@ export default function TransactionsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Income {statsData?.period_label && `(${statsData.period_label})`}
+                </p>
                 <p className="text-2xl font-bold text-green-600">
                   {formatCurrency(stats.total_income, selectedCurrency)}
                 </p>
@@ -128,7 +130,9 @@ export default function TransactionsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Expenses {statsData?.period_label && `(${statsData.period_label})`}
+                </p>
                 <p className="text-2xl font-bold text-red-600">
                   {formatCurrency(stats.total_expenses, selectedCurrency)}
                 </p>
@@ -144,7 +148,9 @@ export default function TransactionsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Transactions {statsData?.period_label && `(${statsData.period_label})`}
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {stats.transaction_count}
                 </p>
@@ -218,7 +224,9 @@ export default function TransactionsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Total Income {statsData?.period_label && `(${statsData.period_label})`}
+                    </p>
                     <p className="text-2xl font-bold text-green-600">
                       {formatCurrency(stats.total_income, selectedCurrency)}
                     </p>
@@ -234,7 +242,9 @@ export default function TransactionsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Total Expenses {statsData?.period_label && `(${statsData.period_label})`}
+                    </p>
                     <p className="text-2xl font-bold text-red-600">
                       {formatCurrency(stats.total_expenses, selectedCurrency)}
                     </p>
@@ -250,7 +260,9 @@ export default function TransactionsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Transactions {statsData?.period_label && `(${statsData.period_label})`}
+                    </p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {stats.transaction_count}
                     </p>

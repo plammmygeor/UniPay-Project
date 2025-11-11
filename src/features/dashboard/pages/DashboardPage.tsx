@@ -26,9 +26,9 @@ export default function DashboardPage() {
   });
 
   const { data: statsData } = useQuery({
-    queryKey: ['transaction-stats'],
+    queryKey: ['transaction-stats', 'last_12_months'],
     queryFn: async () => {
-      const response = await transactionsAPI.getStats();
+      const response = await transactionsAPI.getStats('last_12_months');
       return response.data;
     },
     enabled: isAuthenticated,
@@ -332,7 +332,9 @@ export default function DashboardPage() {
                 <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-success-hover" />
               </div>
               <div className="flex-1">
-                <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-0.5 sm:mb-1">Total Income</p>
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-0.5 sm:mb-1">
+                  Total Income {statsData?.period_label && `(${statsData.period_label})`}
+                </p>
                 <p className="text-2xl sm:text-3xl font-bold text-foreground">
                   {formatCurrency(statsData?.total_income || 0, selectedCurrency)}
                 </p>
@@ -351,7 +353,9 @@ export default function DashboardPage() {
                 <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-danger-hover" />
               </div>
               <div className="flex-1">
-                <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-0.5 sm:mb-1">Total Expenses</p>
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-0.5 sm:mb-1">
+                  Total Expenses {statsData?.period_label && `(${statsData.period_label})`}
+                </p>
                 <p className="text-2xl sm:text-3xl font-bold text-foreground">
                   {formatCurrency(statsData?.total_expenses || 0, selectedCurrency)}
                 </p>
