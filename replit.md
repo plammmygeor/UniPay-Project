@@ -3,6 +3,17 @@
 ## Overview
 UniPay is a digital wallet application designed for students, integrating financial services with lifestyle features. Its core purpose is to provide secure digital payments, subscription management, student discounts, savings goal tracking, and peer-to-peer lending and marketplace functionalities. UniPay aims to be an essential financial tool, offering convenience, security, customized benefits, and fostering financial literacy and independence.
 
+## Recent Changes
+
+### November 11, 2025 - QR Code Payment Feature
+- Implemented secure QR code payment system in Top Up and Transfers pages
+- Added QR code display with auto-expiry (5 minutes)
+- Added bank transfer details dialog with copy-to-clipboard functionality
+- Uses `itsdangerous` signed tokens (not JWT) to prevent bearer token leakage
+- Backend endpoints: `GET /wallet/qr-payment-token`, `POST /wallet/verify-qr-token`
+- Enhanced Transfers page with QR scanner integration using `html5-qrcode`
+- Architect-verified security implementation ensuring tokens cannot be used for API authentication
+
 ## User Preferences
 No specific user preferences recorded yet. This section will be updated as development progresses.
 
@@ -27,7 +38,8 @@ The frontend features a modern, Revolut-inspired interface, built with `shadcn/u
 
 **Core Feature Specifications:**
 *   **Authentication:** User registration, login with password visibility toggle (eye icon), JWT token management, PIN setup/change, and visual-only features for forgot password and social login. Password toggle includes full keyboard and screen-reader accessibility.
-*   **Wallet:** Balance display, top-up, peer-to-peer transfers, and multi-currency support with transfer scheduling.
+*   **Wallet:** Balance display, top-up, peer-to-peer transfers, multi-currency support with transfer scheduling, and secure QR code payment system.
+*   **QR Code Payments:** Secure payment initiation via QR codes using `itsdangerous` signed tokens (not JWT) with 5-minute expiry. Tokens are exclusively for payment verification and cannot be used for API authentication. Features include: token generation endpoint (`/wallet/qr-payment-token`), token verification endpoint (`/wallet/verify-qr-token`), frontend QR display with expiry warning, camera-based QR scanner using `html5-qrcode`, recipient validation (existence, active status, prevents self-transfers), and automatic recipient auto-fill after successful verification.
 *   **Transactions:** Comprehensive tracking, filtering, and statistical analysis for 15+ types, including "expected payments" (CRUD, recurring), balance validation, race condition protection, detailed records, and automatic query invalidation.
 *   **Virtual Cards:** Creation, management (freeze/unfreeze), linking to subscriptions, and payment checks.
 *   **Subscriptions:** Management of recurring payments.

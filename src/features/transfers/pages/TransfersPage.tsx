@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowUpRight, ArrowDownLeft, Send, Users, Calendar } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Send, Users, Calendar, QrCode, ScanLine, X } from 'lucide-react';
 import { walletAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { useCurrencyStore, formatCurrency, convertToUSD } from '@/stores/currencyStore';
+import { QRCodeSVG } from 'qrcode.react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const MotionCard = motion.create(Card);
 
@@ -32,6 +34,12 @@ export default function TransfersPage() {
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTransfers, setScheduledTransfers] = useState<ScheduledTransfer[]>([]);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [scannerDialogOpen, setScannerDialogOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [qrToken, setQrToken] = useState<string>('');
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const queryClient = useQueryClient();
 
   const { data: walletData } = useQuery({
@@ -102,6 +110,87 @@ export default function TransfersPage() {
       });
     }
   };
+
+  const startQRScanner = async () => {
+    if (!scannerRef.current) return;
+
+    try {
+      setIsScanning(true);
+      const html5QrCode = new Html5Qrcode('qr-reader');
+      html5QrCodeRef.current = html5QrCode;
+
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          stopQRScanner();
+          handleQRScanSuccess(decodedText);
+        },
+        () => {}
+      );
+    } catch (error) {
+      console.error('QR Scanner error:', error);
+      toast.error('Failed to start QR scanner. Please check camera permissions.');
+      setIsScanning(false);
+    }
+  };
+
+  const stopQRScanner = () => {
+    if (html5QrCodeRef.current) {
+      html5QrCodeRef.current.stop().then(() => {
+        html5QrCodeRef.current = null;
+        setIsScanning(false);
+        setScannerDialogOpen(false);
+      }).catch((error) => {
+        console.error('Error stopping scanner:', error);
+        setIsScanning(false);
+      });
+    }
+  };
+
+  const handleQRScanSuccess = async (decodedText: string) => {
+    try {
+      // Verify the token with the backend
+      const response = await walletAPI.verifyQRToken(decodedText);
+      const { recipient } = response.data;
+      
+      if (recipient && recipient.username) {
+        setRecipientUsername(recipient.username);
+        setSendDialogOpen(true);
+        toast.success(`Recipient set to @${recipient.username}`, {
+          description: recipient.full_name || 'Verified recipient'
+        });
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || 'Invalid or expired QR code';
+      toast.error(errorMsg);
+    }
+  };
+
+  const loadQRToken = async () => {
+    try {
+      const response = await walletAPI.generateQRToken();
+      setQrToken(response.data.token);
+    } catch (error) {
+      toast.error('Failed to generate QR code');
+    }
+  };
+
+  const handleScanClick = () => {
+    setScannerDialogOpen(true);
+  };
+
+  useEffect(() => {
+    if (scannerDialogOpen && scannerRef.current && !isScanning) {
+      startQRScanner();
+    }
+
+    return () => {
+      if (isScanning) {
+        stopQRScanner();
+      }
+    };
+  }, [scannerDialogOpen]);
 
   const recentTransfers = transactionsData?.transactions?.filter(
     (tx: any) => 
@@ -179,13 +268,34 @@ export default function TransfersPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-4">
             <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Share your username:</p>
-              <p className="text-xl font-bold text-violet-600">@{user?.username || 'loading...'}</p>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xl font-bold text-violet-600">@{user?.username || 'loading...'}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQRDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <QrCode className="h-4 w-4" />
+                  Show QR
+                </Button>
+              </div>
             </div>
-            <p className="text-sm text-gray-500 mt-4">
-              Others can send you money using this username
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleScanClick}
+              >
+                <ScanLine className="h-4 w-4 mr-2" />
+                Scan QR to Send
+              </Button>
+            </div>
+            <p className="text-sm text-gray-500 text-center">
+              Others can send you money using this username or by scanning your QR code
             </p>
           </CardContent>
         </MotionCard>
@@ -383,6 +493,86 @@ export default function TransfersPage() {
                 : isScheduled 
                 ? 'Schedule Transfer' 
                 : 'Send Money'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showQRDialog} onOpenChange={(open) => {
+        setShowQRDialog(open);
+        if (open && !qrToken) {
+          loadQRToken();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Your Payment QR Code</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-6">
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+              {qrToken ? (
+                <QRCodeSVG
+                  value={qrToken}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+              ) : (
+                <div className="w-[200px] h-[200px] flex items-center justify-center">
+                  <p className="text-gray-400">Loading...</p>
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                @{user?.username}
+              </p>
+              <p className="text-xs text-gray-500">
+                Scan this code to send money to this user
+              </p>
+              <p className="text-xs text-amber-600 mt-2">
+                ⏱️ Code expires in 5 minutes
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadQRToken}
+              className="mt-2"
+            >
+              Refresh Code
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scannerDialogOpen} onOpenChange={(open) => {
+        if (!open && isScanning) {
+          stopQRScanner();
+        }
+        setScannerDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan QR Code</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div 
+              id="qr-reader" 
+              ref={scannerRef}
+              className="w-full rounded-lg overflow-hidden bg-black"
+              style={{ minHeight: '300px' }}
+            />
+            <p className="text-sm text-center text-gray-500">
+              Point your camera at a UniPay QR code to scan
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => stopQRScanner()}
+              className="w-full"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
             </Button>
           </div>
         </DialogContent>

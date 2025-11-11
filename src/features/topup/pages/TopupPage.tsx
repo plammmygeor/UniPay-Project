@@ -5,18 +5,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CreditCard, Banknote, QrCode, Wallet } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CreditCard, Banknote, QrCode, Wallet, Copy, Check } from 'lucide-react';
 import { walletAPI } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { useCurrencyStore, formatCurrency, convertCurrency, convertToUSD } from '@/stores/currencyStore';
+import { QRCodeSVG } from 'qrcode.react';
 
 const MotionCard = motion.create(Card);
 
 export default function TopupPage() {
   const [amount, setAmount] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<'bank' | 'card' | 'qr'>('card');
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [showBankDialog, setShowBankDialog] = useState(false);
+  const [qrToken, setQrToken] = useState<string>('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { selectedCurrency } = useCurrencyStore();
+  const { user } = useAuthStore();
 
   const { data: walletData } = useQuery({
     queryKey: ['wallet'],
@@ -51,6 +59,46 @@ export default function TopupPage() {
       amount: amountInUSD,
       method: selectedMethod,
     });
+  };
+
+  const loadQRToken = async () => {
+    try {
+      const response = await walletAPI.generateQRToken();
+      setQrToken(response.data.token);
+    } catch (error) {
+      toast.error('Failed to generate QR code');
+    }
+  };
+
+  const handleShowQR = () => {
+    setShowQRDialog(true);
+    if (!qrToken) {
+      loadQRToken();
+    }
+  };
+
+  const handleShowBankDetails = () => {
+    setShowBankDialog(true);
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast.success(`${field} copied to clipboard`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast.error('Failed to copy');
+    }
+  };
+
+  const bankDetails = {
+    accountName: 'UniPay Student Account',
+    accountNumber: '1234567890',
+    routingNumber: '021000021',
+    swiftCode: 'UNIPAYXX',
+    bankName: 'UniPay Digital Bank',
+    reference: user?.username || 'N/A',
   };
 
   const quickAmounts = [10, 25, 50, 100, 200];
@@ -141,7 +189,10 @@ export default function TopupPage() {
                   ? 'border-violet-600 bg-violet-50 dark:bg-violet-950'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
-              onClick={() => setSelectedMethod('qr')}
+              onClick={() => {
+                setSelectedMethod('qr');
+                handleShowQR();
+              }}
             >
               <QrCode className={`h-8 w-8 mb-3 mx-auto ${
                 selectedMethod === 'qr' ? 'text-violet-600' : 'text-gray-400'
@@ -150,6 +201,38 @@ export default function TopupPage() {
               <p className="text-sm text-gray-500 mt-1">Scan to pay</p>
             </button>
           </div>
+
+          {selectedMethod === 'bank' && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                📋 Bank transfer details available below
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleShowBankDetails}
+              >
+                <Banknote className="h-4 w-4 mr-2" />
+                View Bank Transfer Details
+              </Button>
+            </div>
+          )}
+
+          {selectedMethod === 'qr' && (
+            <div className="p-4 bg-violet-50 dark:bg-violet-950 rounded-lg border border-violet-200">
+              <p className="text-sm text-violet-800 dark:text-violet-200 mb-3">
+                📱 Share your QR code with others to receive payments
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleShowQR}
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Show My QR Code
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="space-y-2">
@@ -205,10 +288,219 @@ export default function TopupPage() {
             <li>• Minimum top-up amount: $1.00</li>
             <li>• Card payments are processed instantly</li>
             <li>• Bank transfers may take 1-2 business days</li>
+            <li>• QR codes expire after 5 minutes for security</li>
             <li>• All transactions are secured with SSL encryption</li>
           </ul>
         </CardContent>
       </MotionCard>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQRDialog} onOpenChange={(open) => {
+        setShowQRDialog(open);
+        if (open && !qrToken) {
+          loadQRToken();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Receive Payment via QR Code</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-6">
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+              {qrToken ? (
+                <QRCodeSVG
+                  value={qrToken}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+              ) : (
+                <div className="w-[200px] h-[200px] flex items-center justify-center">
+                  <p className="text-gray-400">Loading...</p>
+                </div>
+              )}
+            </div>
+            <div className="text-center w-full">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                @{user?.username}
+              </p>
+              <p className="text-xs text-gray-500 mb-3">
+                Others can scan this code to send you money
+              </p>
+              <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 mb-3">
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  ⏱️ QR code expires in 5 minutes for security
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadQRToken}
+                  className="flex-1"
+                >
+                  Refresh Code
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShowBankDetails}
+                  className="flex-1"
+                >
+                  Bank Details
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bank Transfer Details Dialog */}
+      <Dialog open={showBankDialog} onOpenChange={setShowBankDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bank Transfer Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Use these details to transfer funds via bank transfer
+            </p>
+            
+            <div className="space-y-3">
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Account Name</p>
+                    <p className="font-medium">{bankDetails.accountName}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.accountName, 'Account Name')}
+                  >
+                    {copiedField === 'Account Name' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Account Number</p>
+                    <p className="font-medium font-mono">{bankDetails.accountNumber}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.accountNumber, 'Account Number')}
+                  >
+                    {copiedField === 'Account Number' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Routing Number</p>
+                    <p className="font-medium font-mono">{bankDetails.routingNumber}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.routingNumber, 'Routing Number')}
+                  >
+                    {copiedField === 'Routing Number' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">SWIFT Code</p>
+                    <p className="font-medium font-mono">{bankDetails.swiftCode}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.swiftCode, 'SWIFT Code')}
+                  >
+                    {copiedField === 'SWIFT Code' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Bank Name</p>
+                    <p className="font-medium">{bankDetails.bankName}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.bankName, 'Bank Name')}
+                  >
+                    {copiedField === 'Bank Name' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-violet-50 dark:bg-violet-950 rounded-lg border border-violet-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-violet-600 dark:text-violet-400 mb-1">
+                      Payment Reference (IMPORTANT)
+                    </p>
+                    <p className="font-bold text-violet-700 dark:text-violet-300">
+                      {bankDetails.reference}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(bankDetails.reference, 'Reference')}
+                  >
+                    {copiedField === 'Reference' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                ⚠️ <strong>Important:</strong> Always include your payment reference ({bankDetails.reference}) 
+                so we can credit your account correctly.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

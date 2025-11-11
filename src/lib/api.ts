@@ -55,6 +55,8 @@ export const walletAPI = {
   topup: (amount: number, method: string) => api.post('/wallet/topup', { amount, method }),
   transfer: (receiver_username: string, amount: number, description?: string) => 
     api.post('/wallet/transfer', { receiver_username, amount, description }),
+  generateQRToken: () => api.get('/wallet/qr-payment-token'),
+  verifyQRToken: (token: string) => api.post('/wallet/verify-qr-token', { token }),
 };
 
 export const transactionsAPI = {
