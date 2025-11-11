@@ -31,7 +31,21 @@ def app():
 
 
 @pytest.fixture
-def client(app):
+def clean_db(app):
+    """Clean database before each test"""
+    with app.app_context():
+        # Remove all data but keep tables
+        db.session.rollback()
+        for table in reversed(db.metadata.sorted_tables):
+            db.session.execute(table.delete())
+        db.session.commit()
+    yield
+    with app.app_context():
+        db.session.rollback()
+
+
+@pytest.fixture
+def client(app, clean_db):
     """Test client for making HTTP requests"""
     return app.test_client()
 
